@@ -43,7 +43,28 @@
   }
 
   // --- Общее: шапка прячется при скролле вниз, блоки появляются при прокрутке ---
+  // Тема: по умолчанию как в системе, выбор запоминается (gz_theme).
+  function initTheme() {
+    const btn = $("#themebtn");
+    if (!btn) return;
+    const sys = () => matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    const cur = () => document.documentElement.dataset.theme || sys();
+    const sync = () => {
+      const t = cur();
+      btn.setAttribute("aria-label", t === "light" ? "Включить тёмную тему" : "Включить светлую тему");
+      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "light" ? "#F6F6F1" : "#07070C");
+    };
+    btn.addEventListener("click", () => {
+      const t = cur() === "light" ? "dark" : "light";
+      document.documentElement.dataset.theme = t;
+      try { localStorage.setItem("gz_theme", t); } catch (e) { /* приватный режим */ }
+      sync();
+    });
+    sync();
+  }
+
   function initChrome() {
+    initTheme();
     const top = $("#top");
     let last = 0;
     addEventListener("scroll", () => {
@@ -211,7 +232,7 @@
     </div>
     <div class="row">
       <button class="btn" id="play" type="button">${PLAY("#07070C")}<span>${playLabel(g)}</span></button>
-      <button class="btn ghost" id="fs" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F4F4F8" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>На весь экран</button>
+      <button class="btn ghost" id="fs" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>На весь экран</button>
       <a class="btn ghost" href="${P.esc(url)}" target="_blank" rel="noopener">Открыть отдельно</a>
       <button class="btn ghost icon fav" id="fav" type="button" aria-label="В избранное" aria-pressed="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF4FA3" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg></button>
     </div>
