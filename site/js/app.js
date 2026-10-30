@@ -6,8 +6,10 @@
   // Каталог: сейчас статичный JSON. Когда появится бэкенд для авторов,
   // меняем на "/api/games" — формат записи тот же.
   const CATALOG_URL = "games.json";
-  const SLIDE_MS = 6000;
-  const LOAD_MS = 1600;
+  const SLIDE_MS = 7000;
+  const LOAD_MS = 1200;
+  const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const TOUCH = matchMedia("(hover: none)").matches;
 
   // Игры живут на ОТДЕЛЬНОМ origin (поддомен play. или порт 8080 на голом IP),
   // чтобы чужой код в iframe не видел куки и данные портала.
@@ -22,7 +24,17 @@
 
   P.esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const $ = (sel) => document.querySelector(sel);
-  const PLAY_ICON = (c) => `<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l14 8-14 8z" fill="${c}"/></svg>`;
+  const PLAY = (c, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l14 8-14 8z" fill="${c}"/></svg>`;
+  const ARROW = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#07070C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>`;
+  const playLabel = (g) => g.status === "Демо" ? "Играть демо" : "Играть";
+
+  // Медиа игры: живое видео-превью (если есть) поверх постера, иначе процедурная обложка.
+  function mediaHtml(g, hero, autoplay) {
+    if (!g.preview) return P.cover(g, hero);
+    const poster = g.poster ? `<img src="${P.esc(g.poster)}" alt="" loading="lazy">` : P.cover(g, hero);
+    const ap = autoplay && !REDUCED ? " autoplay" : "";
+    return `${poster}<video src="${P.esc(g.preview)}" muted loop playsinline preload="${autoplay ? "auto" : "none"}"${ap} aria-hidden="true"></video>`;
+  }
 
   async function loadCatalog() {
     const r = await fetch(CATALOG_URL, { cache: "no-cache" });
@@ -30,95 +42,153 @@
     return r.json();
   }
 
-  // --- Главная -----------------------------------------------------------------
+  // --- Общее: шапка прячется при скролле вниз, блоки появляются при прокрутке ---
+  function initChrome() {
+    const top = $("#top");
+    let last = 0;
+    addEventListener("scroll", () => {
+      const y = scrollY;
+      top.classList.toggle("hide", y > 200 && y > last);
+      last = y;
+    }, { passive: true });
+
+    const els = document.querySelectorAll("[data-reveal]");
+    if (REDUCED || !("IntersectionObserver" in window)) { els.forEach((e) => e.classList.add("in")); return; }
+    const io = new IntersectionObserver((list) => list.forEach((en) => {
+      if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
+    }), { threshold: 0.12 });
+    els.forEach((e) => io.observe(e));
+  }
+  P.reveal = function (root) {
+    root.querySelectorAll("[data-reveal]").forEach((e) => requestAnimationFrame(() => e.classList.add("in")));
+  };
+
+  // --- Главная: герой с видео ------------------------------------------------------
+  function splitWords(text) {
+    return P.esc(text).split(" ").map((w, i) => `<span class="w"><span style="animation-delay:${0.08 * i + 0.1}s">${w}</span></span>`).join(" ");
+  }
+
   function renderHero(games) {
     const root = $("#hero");
     if (!root || !games.length) return;
-    let i = 0, timer = 0;
-    const art = root.querySelector(".hero-art"), copy = root.querySelector(".hero-copy"), dots = root.querySelector(".dots .wrap");
+    const media = root.querySelector(".hero-media"), copy = root.querySelector(".hero-copy"), thumbs = root.querySelector(".hero-thumbs");
+    root.style.setProperty("--slide", SLIDE_MS + "ms");
+    let i = -1, timer = 0;
 
-    dots.innerHTML = games.map((g, k) => `<button class="dot" type="button" data-k="${k}" aria-label="Показать: ${P.esc(g.title)}"><span></span></button>`).join("");
-    dots.addEventListener("click", (e) => {
-      const b = e.target.closest(".dot");
+    media.innerHTML = games.map((g) => `<div class="layer">${mediaHtml(g, true, false)}</div>`).join("");
+    const layers = [...media.children];
+    thumbs.innerHTML = games.map((g, k) => `<button class="thumb" type="button" data-k="${k}" aria-label="Показать: ${P.esc(g.title)}">${g.poster ? `<img src="${P.esc(g.poster)}" alt="">` : P.cover(g, false)}<span>${P.esc(g.title)}</span><i></i></button>`).join("");
+    thumbs.addEventListener("click", (e) => {
+      const b = e.target.closest(".thumb");
       if (b) { show(+b.dataset.k); restart(); }
     });
 
     function show(k) {
+      if (k === i) return;
       i = k;
       const g = games[k];
-      art.innerHTML = `<div class="slide" style="position:absolute;inset:0">${P.cover(g, true)}</div>`;
+      layers.forEach((l, n) => {
+        l.classList.toggle("on", n === k);
+        const v = l.querySelector("video");
+        if (!v) return;
+        if (n === k && !REDUCED) { v.preload = "auto"; v.currentTime = 0; v.play().catch(() => {}); }
+        else v.pause();
+      });
       copy.innerHTML = `
-        <span class="badge" style="background:${P.esc(g.statusColor)}">${P.esc(g.status)}</span>
-        <h1 class="glitch">${P.esc(g.title)}</h1>
-        <p>${P.esc(g.tagline)}</p>
-        <div class="tags">${g.tags.map((t) => `<span class="tag">${P.esc(t)}</span>`).join("")}</div>
-        <div class="row" style="margin-top:8px">
-          <a class="btn" href="game.html?id=${encodeURIComponent(g.id)}&play=1">${PLAY_ICON("#0A0A12")}${g.status === "Демо" ? "Играть демо" : "Играть"}</a>
+        <span class="eyebrow fadeup"><b></b>${P.esc(g.status)} · ${P.esc(g.genre)}</span>
+        <h1>${splitWords(g.title)}</h1>
+        <p class="fadeup" style="animation-delay:.35s">${P.esc(g.tagline)}</p>
+        <div class="row fadeup" style="animation-delay:.5s">
+          <a class="btn" href="game.html?id=${encodeURIComponent(g.id)}&play=1">${PLAY("#07070C")}${playLabel(g)}</a>
           <a class="btn ghost" href="game.html?id=${encodeURIComponent(g.id)}">Подробнее</a>
         </div>`;
-      copy.classList.remove("slide"); void copy.offsetWidth; copy.classList.add("slide");
-      dots.querySelectorAll(".dot").forEach((d, n) => d.classList.toggle("on", n === k));
+      thumbs.querySelectorAll(".thumb").forEach((t, n) => {
+        t.classList.toggle("on", n === k);
+        const bar = t.querySelector("i");
+        bar.style.animation = "none"; void bar.offsetWidth; bar.style.animation = "";
+      });
     }
     function restart() {
       clearInterval(timer);
-      timer = setInterval(() => show((i + 1) % games.length), SLIDE_MS);
+      if (!REDUCED) timer = setInterval(() => show((i + 1) % games.length), SLIDE_MS);
     }
-    // автопрокрутка замирает, пока на баннер смотрят или жмут по нему
-    root.addEventListener("mouseenter", () => clearInterval(timer));
-    root.addEventListener("mouseleave", restart);
     root.addEventListener("focusin", () => clearInterval(timer));
     root.addEventListener("focusout", restart);
     show(0);
     restart();
   }
 
-  function renderAuthors() {
-    const b = $("#notify"), msg = $("#notify-msg");
-    if (b) b.addEventListener("click", () => { msg.textContent = "Приём игр откроем совсем скоро. Следи за бегущей строкой!"; });
-  }
+  // --- Главная: каталог-бенто ---------------------------------------------------
+  const SOON_CARD = { id: "soon", soon: true, title: "Твоя игра", genre: "Скоро", status: "Скоро", statusColor: "#B9A8FF", text: "Здесь появятся игры других авторов. Загрузи свою первым.", author: "Ты", cover: "soon", tags: [] };
 
   function cardHtml(g, k) {
     const href = g.soon ? "#authors" : `game.html?id=${encodeURIComponent(g.id)}`;
     return `
-<a class="card" href="${href}" style="animation-delay:${k * 0.08}s">
-  <div class="cov">
-    <div class="art">${P.cover(g, false)}</div>
-    <span class="badge" style="background:${P.esc(g.statusColor)}">${P.esc(g.status)}</span>
-    <span class="playchip">${PLAY_ICON("#C8FF2E")}${g.soon ? "Подробнее" : (g.status === "Демо" ? "Демо" : "Играть")}</span>
-  </div>
-  <div class="card-body">
-    <div class="card-title"><h3>${P.esc(g.title)}</h3><span class="genre">${P.esc(g.genre)}</span></div>
+<a class="card${g.soon ? " soon" : ""}" href="${href}" data-reveal style="--d:${(k * 0.08).toFixed(2)}s">
+  <div class="media">${mediaHtml(g, false, false)}</div>
+  <span class="badge" style="background:${P.esc(g.statusColor)}">${P.esc(g.status)}</span>
+  <span class="go">${ARROW}</span>
+  <div class="info">
+    <h3>${P.esc(g.title)}</h3>
     <p>${P.esc(g.text)}</p>
-    <div class="meta"><span>${P.esc(g.devices || "")}</span><span class="grow"></span><span>${P.esc(g.author)}</span></div>
+    <div class="meta"><span>${P.esc(g.genre)}</span>${g.devices ? `<span class="dev">·</span><span class="dev">${P.esc(g.devices)}</span>` : ""}<span>·</span><span>${P.esc(g.author)}</span></div>
   </div>
 </a>`;
   }
 
-  const SOON_CARD = { id: "soon", soon: true, title: "Твоя игра", genre: "Скоро", status: "Скоро", statusColor: "#B9A8FF", text: "Здесь появятся игры других авторов. Загрузи свою первым.", author: "Ты", cover: "soon", cat: "*" };
+  // Видео в карточке: на ПК играет при наведении, на тач-устройствах — когда карточка на экране.
+  function wireCard(card) {
+    const v = card.querySelector("video");
+    card.addEventListener("pointermove", (e) => {
+      const r = card.getBoundingClientRect();
+      card.style.setProperty("--mx", (e.clientX - r.left) + "px");
+      card.style.setProperty("--my", (e.clientY - r.top) + "px");
+    });
+    if (!v || REDUCED) return;
+    const play = () => { v.preload = "auto"; v.play().then(() => card.classList.add("playing")).catch(() => {}); };
+    const stop = () => { v.pause(); card.classList.remove("playing"); };
+    if (TOUCH && "IntersectionObserver" in window) {
+      new IntersectionObserver(([en]) => en.intersectionRatio > 0.6 ? play() : stop(), { threshold: [0, 0.6] }).observe(card);
+    } else {
+      card.addEventListener("mouseenter", play);
+      card.addEventListener("mouseleave", stop);
+    }
+  }
 
   function renderCatalog(games) {
     const grid = $("#grid"), chips = $("#chips"), search = $("#q");
     if (!grid) return;
     const state = { cat: "all", q: "" };
-    const cats = [["all", "Все"], ...[...new Map(games.map((g) => [g.cat, g.genre])).entries()]];
-    chips.innerHTML = cats.map(([id, label]) => `<button class="chip${id === "all" ? " on" : ""}" type="button" data-cat="${P.esc(id)}">${P.esc(label)}</button>`).join("");
+    const cats = [["all", "Все"], ...new Map(games.map((g) => [g.cat, g.genre]))];
+    chips.innerHTML = cats.map(([id, label]) => `<button class="chip${id === "all" ? " on" : ""}" type="button" data-cat="${P.esc(id)}" aria-pressed="${id === "all"}">${P.esc(label)}</button>`).join("");
     chips.addEventListener("click", (e) => {
       const b = e.target.closest(".chip");
       if (!b) return;
       state.cat = b.dataset.cat;
-      chips.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c === b));
+      chips.querySelectorAll(".chip").forEach((c) => { c.classList.toggle("on", c === b); c.setAttribute("aria-pressed", String(c === b)); });
       draw();
     });
-    if (search) search.addEventListener("input", () => { state.q = search.value.trim().toLowerCase(); draw(); document.getElementById("catalog").scrollIntoView(); });
+    search.addEventListener("input", () => { state.q = search.value.trim().toLowerCase(); draw(); });
+    $("#searchbtn")?.addEventListener("click", () => {
+      document.getElementById("catalog").scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" });
+      setTimeout(() => search.focus({ preventScroll: true }), 500);
+    });
 
     function draw() {
       const list = games.filter((g) =>
         (state.cat === "all" || g.cat === state.cat) &&
         (!state.q || (g.title + " " + g.genre + " " + g.tags.join(" ")).toLowerCase().includes(state.q)));
-      if (!state.q) list.push(SOON_CARD);
+      if (!state.q && state.cat === "all") list.push(SOON_CARD);
       grid.innerHTML = list.length ? list.map(cardHtml).join("") : `<div class="empty">Ничего не нашлось. Попробуй другое слово.</div>`;
+      grid.querySelectorAll(".card").forEach(wireCard);
+      P.reveal(grid);
     }
     draw();
+  }
+
+  function renderAuthors() {
+    const b = $("#notify"), msg = $("#notify-msg");
+    if (b) b.addEventListener("click", () => { msg.textContent = "Приём игр откроем совсем скоро!"; });
   }
 
   // --- Страница игры -------------------------------------------------------------
@@ -130,24 +200,24 @@
       root.innerHTML = `<div class="note">Такой игры нет. <a href="./">Вернуться в каталог</a></div>`;
       return;
     }
-    document.title = `${g.title} — Игропорт`;
+    document.title = `${g.title} — GAMEZAL`;
     const url = P.gameUrl(g);
     root.innerHTML = `
 <div class="split">
-  <div class="main">
+  <div class="main" data-reveal>
     <div class="player" id="player">
-      <div class="art">${P.cover(g, false)}</div>
-      <div class="overlay dim"><button class="bigplay" id="bigplay" type="button" aria-label="Играть: ${P.esc(g.title)}"><svg width="44" height="44" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l12 7-12 7z" fill="#0A0A12"/></svg></button></div>
+      <div class="media">${mediaHtml(g, false, true)}</div>
+      <div class="overlay dim"><button class="bigplay" id="bigplay" type="button" aria-label="Играть: ${P.esc(g.title)}">${PLAY("#07070C", 44)}</button></div>
     </div>
     <div class="row">
-      <button class="btn" id="play" type="button">${PLAY_ICON("#0A0A12")}Играть</button>
-      <button class="btn ghost" id="fs" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F2F2F7" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>На весь экран</button>
+      <button class="btn" id="play" type="button">${PLAY("#07070C")}<span>${playLabel(g)}</span></button>
+      <button class="btn ghost" id="fs" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F4F4F8" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>На весь экран</button>
       <a class="btn ghost" href="${P.esc(url)}" target="_blank" rel="noopener">Открыть отдельно</a>
-      <button class="btn ghost icon fav" id="fav" type="button" aria-label="В избранное" aria-pressed="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF3D9A" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg></button>
+      <button class="btn ghost icon fav" id="fav" type="button" aria-label="В избранное" aria-pressed="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF4FA3" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg></button>
     </div>
   </div>
-  <aside class="side">
-    <span class="badge" style="background:${P.esc(g.statusColor)}">${P.esc(g.status)}</span>
+  <aside class="side" data-reveal style="--d:.1s">
+    <span class="badge" style="background:${P.esc(g.statusColor)};align-self:flex-start">${P.esc(g.status)}</span>
     <h1>${P.esc(g.title)}</h1>
     <p class="lead">${P.esc(g.tagline)}</p>
     <div class="tags">${g.tags.map((t) => `<span class="tag">${P.esc(t)}</span>`).join("")}</div>
@@ -160,8 +230,8 @@
   </aside>
 </div>
 <div class="split">
-  <section class="list"><h2 class="h2s">Что внутри</h2>${(g.features || []).map((f) => `<div class="feat">${P.esc(f)}</div>`).join("")}</section>
-  <section class="list"><h2 class="h2s">Управление</h2>
+  <section class="list" data-reveal><h2 class="h2s">Что внутри</h2>${(g.features || []).map((f) => `<div class="feat">${P.esc(f)}</div>`).join("")}</section>
+  <section class="list" data-reveal style="--d:.1s"><h2 class="h2s">Управление</h2>
     <div class="facts">
       <div class="fact"><b>Планшет и телефон</b><span>${P.esc(g.controls?.touch)}</span></div>
       <div class="fact"><b>Клавиатура</b><span>${P.esc(g.controls?.keys)}</span></div>
@@ -169,12 +239,14 @@
     <div class="note">Отзывы и рейтинг появятся, когда на портале заработают аккаунты.</div>
   </section>
 </div>`;
+    P.reveal(root);
 
     const player = $("#player");
     let started = false;
     function start() {
       if (started) { player.querySelector("iframe")?.setAttribute("src", url); return; }
       started = true;
+      player.querySelector(".media video")?.pause();
       player.insertAdjacentHTML("beforeend", `<div class="overlay load" id="loading"><span style="font-family:var(--display);font-weight:700;font-size:18px">Загружаем: ${P.esc(g.title)}…</span><div class="bar"><i></i></div></div>`);
       // sandbox: без allow-top-navigation и allow-popups — игра не может увести портал.
       // allow-same-origin нужен игре для своих сохранений (localStorage на play-origin).
@@ -186,14 +258,13 @@
       f.setAttribute("sandbox", "allow-scripts allow-same-origin allow-pointer-lock allow-forms");
       f.style.opacity = "0";
       player.appendChild(f);
-      const reveal = () => setTimeout(() => {
+      f.addEventListener("load", () => setTimeout(() => {
         f.style.opacity = "1";
-        player.querySelector(".art")?.remove();
+        player.querySelector(".media")?.remove();
         player.querySelectorAll(".overlay").forEach((o) => o.remove());
         f.focus();
-      }, LOAD_MS);
-      f.addEventListener("load", reveal, { once: true });
-      $("#play").lastChild.textContent = "Перезапустить";
+      }, LOAD_MS), { once: true });
+      $("#play span").textContent = "Перезапустить";
     }
     $("#bigplay").addEventListener("click", start);
     $("#play").addEventListener("click", start);
@@ -217,6 +288,7 @@
   }
 
   // --- Старт ---------------------------------------------------------------------
+  initChrome();
   loadCatalog().then((games) => {
     if (document.body.dataset.page === "game") renderGame(games);
     else { renderHero(games); renderCatalog(games); renderAuthors(); }
