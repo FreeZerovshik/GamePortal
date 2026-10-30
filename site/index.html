@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0A0A12">
+<meta name="description" content="Игропорт — браузерные игры: играй сразу, без установки, на ПК, планшете и телефоне.">
+<title>Игропорт — играй в браузере</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="home">
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="./"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="2" y="2" width="30" height="30" rx="9" fill="#C8FF2E"/><path d="M13 11l11 6-11 6z" fill="#0A0A12"/></svg>ИГРОПОРТ</a>
+    <nav class="nav" aria-label="Разделы">
+      <a href="#catalog">Каталог</a>
+      <a href="#authors">Авторам</a>
+    </nav>
+    <span class="grow"></span>
+    <label class="search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A9AB5" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+      <span class="sr">Поиск игр</span>
+      <input id="q" type="search" placeholder="Найти игру" autocomplete="off">
+    </label>
+  </div>
+</header>
+
+<main>
+  <section class="hero" id="hero" aria-label="Игры в центре внимания">
+    <div class="hero-art"></div>
+    <span class="ash" style="left:52%;top:92%;animation-delay:0s"></span>
+    <span class="ash" style="left:60%;top:96%;animation-delay:1.2s"></span>
+    <span class="ash" style="left:68%;top:90%;animation-delay:2.5s"></span>
+    <span class="ash" style="left:75%;top:98%;animation-delay:3.4s"></span>
+    <span class="ash" style="left:83%;top:94%;animation-delay:4.6s"></span>
+    <span class="ash" style="left:90%;top:97%;animation-delay:5.7s"></span>
+    <div class="hero-shade"></div>
+    <div class="wrap hero-in"><div class="hero-copy"></div></div>
+    <div class="dots"><div class="wrap"></div></div>
+  </section>
+
+  <div class="ticker" aria-hidden="true"><div>
+    <span>НОВОЕ — Марс: глава 2 «Ледяная луна»</span><span>✦</span><span>Кубомир: ранний доступ, строй свой остров</span><span>✦</span><span>Ядерный рассвет: первый бой со Стражем</span><span>✦</span><span>Скоро: игры других авторов</span><span>✦</span>
+    <span>НОВОЕ — Марс: глава 2 «Ледяная луна»</span><span>✦</span><span>Кубомир: ранний доступ, строй свой остров</span><span>✦</span><span>Ядерный рассвет: первый бой со Стражем</span><span>✦</span><span>Скоро: игры других авторов</span><span>✦</span>
+  </div></div>
+
+  <section class="wrap section" id="catalog">
+    <div class="head">
+      <div><div class="kicker">Каталог</div><h2>Во что поиграть</h2></div>
+      <div class="chips" id="chips" role="group" aria-label="Жанр"></div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section class="wrap" id="authors" style="padding-top:40px">
+    <div class="authors">
+      <svg class="blob" width="280" height="280" viewBox="0 0 280 280" aria-hidden="true"><rect x="40" y="40" width="200" height="200" rx="56" fill="#C8FF2E"/><path d="M115 95l70 45-70 45z" fill="#7C5CFF"/></svg>
+      <div style="display:flex;flex-direction:column;gap:12px;position:relative">
+        <div class="kicker">Скоро — для авторов</div>
+        <h2>Сделал игру? Выложи её здесь</h2>
+        <p>Загрузи веб-игру архивом. После проверки в неё смогут играть все, прямо в браузере и без установки.</p>
+      </div>
+      <div class="steps">
+        <div class="step"><b>01</b><strong>Загрузи архив</strong><span>ZIP с index.html, обложка и пара скриншотов.</span></div>
+        <div class="step"><b>02</b><strong>Пройди проверку</strong><span>Мы посмотрим игру, обычно за день-два.</span></div>
+        <div class="step"><b>03</b><strong>Собирай игроков</strong><span>Своя страница, отзывы и счётчик запусков.</span></div>
+      </div>
+      <div class="row" style="position:relative"><button class="btn" type="button" id="notify">Хочу выложить игру</button><span class="soon-msg" id="notify-msg" role="status"></span></div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap"><span>ИГРОПОРТ — игры, в которые играют прямо в браузере</span><span>Сделано Матвеем и Львом</span></div>
+</footer>
+<script src="js/art.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
