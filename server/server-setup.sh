@@ -166,6 +166,8 @@ $PLAY_SITE {
 	file_server
 }
 EOF
+# В режиме домена www.<домен> уводим на основной адрес
+[[ $IP_MODE == 0 ]] && printf '\nwww.%s {\n\tredir https://%s{uri} permanent\n}\n' "$DOMAIN" "$DOMAIN" >> /etc/caddy/Caddyfile
 
 if [[ ! -f /srv/portal/index.html ]]; then
   cat > /srv/portal/index.html <<EOF
@@ -190,7 +192,7 @@ echo "==> Файрвол: SSH, HTTP, HTTPS"
 ufw allow OpenSSH >/dev/null
 ufw allow 80/tcp >/dev/null
 ufw allow 443/tcp >/dev/null
-[[ $IP_MODE == 1 ]] && ufw allow 8080/tcp >/dev/null
+if [[ $IP_MODE == 1 ]]; then ufw allow 8080/tcp >/dev/null; else ufw delete allow 8080/tcp >/dev/null 2>&1 || true; fi
 ufw --force enable >/dev/null
 
 systemctl daemon-reload
