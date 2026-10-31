@@ -298,10 +298,22 @@
     }
     $("#bigplay").addEventListener("click", start);
     $("#play").addEventListener("click", start);
+    // На планшетах/телефонах настоящий Fullscreen API ненадёжен: iPad Safari выходит из него
+    // от свайпов в игре. Там разворачиваем плеер поверх страницы (CSS), без API.
+    function pseudoFs(on) {
+      player.classList.toggle("pfs", on);
+      document.documentElement.classList.toggle("pfs-lock", on);
+      if (on && !player.querySelector(".pfs-close")) {
+        player.insertAdjacentHTML("beforeend", `<button class="pfs-close" type="button" aria-label="Выйти из полноэкранного режима">✕</button>`);
+        player.querySelector(".pfs-close").addEventListener("click", () => pseudoFs(false));
+      }
+      player.querySelector("iframe")?.focus();
+    }
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && player.classList.contains("pfs")) pseudoFs(false); });
     $("#fs").addEventListener("click", () => {
       if (!started) start();
       const req = player.requestFullscreen || player.webkitRequestFullscreen;
-      if (req) req.call(player); else window.open(url, "_blank", "noopener");
+      if (TOUCH || !req) pseudoFs(true); else req.call(player);
     });
 
     const favKey = "portal_fav_" + g.id;
