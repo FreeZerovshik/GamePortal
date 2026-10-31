@@ -8,6 +8,7 @@
   const CATALOG_URL = "games.json";
   const SLIDE_MS = 7000;
   const LOAD_MS = 1200;
+  const STUCK_MS = 15000;
   const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const TOUCH = matchMedia("(hover: none)").matches;
 
@@ -279,6 +280,14 @@
       f.setAttribute("sandbox", "allow-scripts allow-same-origin allow-pointer-lock allow-forms");
       f.style.opacity = "0";
       player.appendChild(f);
+      // Safari не шлёт load, если адрес игры недоступен — не держим вечную загрузку.
+      const stuck = setTimeout(() => {
+        const o = $("#loading");
+        if (!o) return;
+        o.innerHTML = `<span style="font-family:var(--display);font-weight:700;font-size:18px">Игра не отвечает</span><span style="opacity:.75">Проверь интернет или открой игру в отдельной вкладке.</span><div class="row" style="gap:10px;justify-content:center"><a class="btn" href="${P.esc(url)}" target="_blank" rel="noopener">Открыть отдельно</a><button class="btn ghost" type="button" id="retry">Ещё раз</button></div>`;
+        $("#retry").addEventListener("click", () => location.reload());
+      }, STUCK_MS);
+      f.addEventListener("load", () => clearTimeout(stuck), { once: true });
       f.addEventListener("load", () => setTimeout(() => {
         f.style.opacity = "1";
         player.querySelector(".media")?.remove();
